@@ -1,0 +1,414 @@
+Copy this into a file named `index.html`:
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pocket Calculator</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 25px;
+      font-family: Arial, sans-serif;
+      color: #172136;
+      background: linear-gradient(135deg, #e5dfff, #fbfaf7, #d7f7ed);
+    }
+
+    .app { width: min(900px, 100%); }
+
+    h1 { margin-bottom: 5px; }
+    .subtitle { margin-top: 0; color: #63708a; }
+
+    .calculator {
+      display: grid;
+      grid-template-columns: 1fr 250px;
+      overflow: hidden;
+      border-radius: 25px;
+      background: white;
+      box-shadow: 0 20px 50px rgba(30, 38, 66, 0.18);
+    }
+
+    .main { padding: 25px; }
+
+    .display {
+      min-height: 140px;
+      padding: 20px;
+      text-align: right;
+      color: white;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #252f50, #3b3577);
+    }
+
+    #expression {
+      min-height: 25px;
+      color: #c4c5e8;
+      font-size: 15px;
+    }
+
+    #display {
+      font-size: 55px;
+      font-weight: bold;
+      overflow-wrap: break-word;
+    }
+
+    .hint {
+      color: #63708a;
+      font-size: 13px;
+    }
+
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      min-height: 58px;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: bold;
+      color: #172136;
+      background: #f2f3f7;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      background: #e7e8ee;
+    }
+
+    .operator {
+      color: #5647c9;
+      background: #edeaff;
+    }
+
+    .utility {
+      color: #25685a;
+      background: #dff6ee;
+    }
+
+    .danger {
+      color: #bd3d58;
+      background: #ffebef;
+    }
+
+    .equals {
+      color: white;
+      background: #6c5ce7;
+    }
+
+    aside {
+      padding: 25px 18px;
+      background: #f7f7fb;
+      border-left: 1px solid #e7e8ee;
+    }
+
+    .history-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #clear-history {
+      min-height: auto;
+      color: #63708a;
+      background: none;
+      font-size: 12px;
+    }
+
+    .history-item {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      color: #63708a;
+      background: white;
+      font-size: 13px;
+    }
+
+    .history-item strong {
+      display: block;
+      margin-top: 4px;
+      color: #172136;
+      font-size: 16px;
+    }
+
+    .empty { color: #63708a; }
+
+    @media (max-width: 650px) {
+      .calculator { grid-template-columns: 1fr; }
+      aside { border-left: none; border-top: 1px solid #e7e8ee; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <h1>Pocket Calculator</h1>
+    <p class="subtitle">A clean calculator that shows your working.</p>
+
+    <section class="calculator">
+      <div class="main">
+        <div class="display">
+          <div id="expression">Ready when you are</div>
+          <div id="display">0</div>
+        </div>
+
+        <p class="hint">
+          Keyboard: numbers, +, -, *, /, Enter, Backspace, and Escape work.
+        </p>
+
+        <div class="keys">
+          <button class="danger" data-action="clear">C</button>
+          <button class="utility" data-action="backspace">⌫</button>
+          <button class="utility" data-action="sqrt">√</button>
+          <button class="operator" data-operation="/">÷</button>
+
+          <button data-number="7">7</button>
+          <button data-number="8">8</button>
+          <button data-number="9">9</button>
+          <button class="operator" data-operation="*">×</button>
+
+          <button data-number="4">4</button>
+          <button data-number="5">5</button>
+          <button data-number="6">6</button>
+          <button class="operator" data-operation="-">−</button>
+
+          <button data-number="1">1</button>
+          <button data-number="2">2</button>
+          <button data-number="3">3</button>
+          <button class="operator" data-operation="+">+</button>
+
+          <button class="utility" data-action="percent">%</button>
+          <button data-number="0">0</button>
+          <button data-action="decimal">.</button>
+          <button class="equals" data-action="equals">=</button>
+        </div>
+      </div>
+
+      <aside>
+        <div class="history-title">
+          <h2>History</h2>
+          <button id="clear-history">Clear</button>
+        </div>
+
+        <div id="history">
+          <p class="empty">Your calculations will appear here.</p>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const display = document.getElementById("display");
+    const expression = document.getElementById("expression");
+    const historyBox = document.getElementById("history");
+
+    let current = "0";
+    let previous = null;
+    let operation = null;
+    let waitingForNumber = false;
+    let history = [];
+
+    function pretty(number) {
+      if (!Number.isFinite(number)) return "Error";
+
+      return Number(number.toFixed(10)).toLocaleString("en-US", {
+        maximumFractionDigits: 10
+      });
+    }
+
+    function updateDisplay() {
+      display.textContent = pretty(Number(current));
+    }
+
+    function addHistory(problem, result) {
+      history.unshift({ problem, result });
+
+      if (history.length > 12) {
+        history.pop();
+      }
+
+      renderHistory();
+    }
+
+    function renderHistory() {
+      if (history.length === 0) {
+        historyBox.innerHTML = "<p class='empty'>Your calculations will appear here.</p>";
+        return;
+      }
+
+      historyBox.innerHTML = "";
+
+      history.forEach(function (item) {
+        historyBox.innerHTML += `
+          <div class="history-item">
+            ${item.problem}
+            <strong>= ${item.result}</strong>
+          </div>
+        `;
+      });
+    }
+
+    function calculate(a, b, operator) {
+      if (operator === "+") return a + b;
+      if (operator === "-") return a - b;
+      if (operator === "*") return a * b;
+      if (operator === "/") return b === 0 ? NaN : a / b;
+    }
+
+    function inputNumber(number) {
+      if (waitingForNumber || !Number.isFinite(Number(current))) {
+        current = number;
+        waitingForNumber = false;
+      } else {
+        current = current === "0" ? number : current + number;
+      }
+
+      updateDisplay();
+    }
+
+    function inputDecimal() {
+      if (waitingForNumber) {
+        current = "0.";
+        waitingForNumber = false;
+      } else if (!current.includes(".")) {
+        current += ".";
+      }
+
+      updateDisplay();
+    }
+
+    function chooseOperation(nextOperation) {
+      const value = Number(current);
+
+      if (operation && !waitingForNumber) {
+        const result = calculate(previous, value, operation);
+        current = String(result);
+        previous = result;
+        updateDisplay();
+      } else {
+        previous = value;
+      }
+
+      operation = nextOperation;
+      waitingForNumber = true;
+
+      const signs = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+      expression.textContent = pretty(previous) + " " + signs[operation];
+    }
+
+    function finishCalculation() {
+      if (!operation || waitingForNumber) return;
+
+      const value = Number(current);
+      const result = calculate(previous, value, operation);
+
+      const signs = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+      const problem = pretty(previous) + " " + signs[operation] + " " + pretty(value);
+
+      current = String(result);
+      expression.textContent = problem + " =";
+      addHistory(problem, pretty(result));
+
+      previous = null;
+      operation = null;
+      waitingForNumber = true;
+
+      updateDisplay();
+    }
+
+    function squareRoot() {
+      const value = Number(current);
+
+      if (value < 0) {
+        current = "NaN";
+        expression.textContent = "Negative square root is not allowed";
+      } else {
+        current = String(Math.sqrt(value));
+        expression.textContent = "√" + pretty(value) + " =";
+        addHistory("√" + pretty(value), pretty(Number(current)));
+      }
+
+      previous = null;
+      operation = null;
+      waitingForNumber = true;
+      updateDisplay();
+    }
+
+    function percentage() {
+      const value = Number(current);
+
+      current = String(value / 100);
+      expression.textContent = pretty(value) + "% =";
+      addHistory(pretty(value) + "%", pretty(Number(current)));
+
+      waitingForNumber = true;
+      updateDisplay();
+    }
+
+    function clearAll() {
+      current = "0";
+      previous = null;
+      operation = null;
+      waitingForNumber = false;
+      expression.textContent = "Ready when you are";
+      updateDisplay();
+    }
+
+    function backspace() {
+      if (!waitingForNumber) {
+        current = current.length > 1 ? current.slice(0, -1) : "0";
+        updateDisplay();
+      }
+    }
+
+    document.querySelector(".keys").addEventListener("click", function (event) {
+      const button = event.target.closest("button");
+
+      if (!button) return;
+
+      if (button.dataset.number !== undefined) {
+        inputNumber(button.dataset.number);
+      } else if (button.dataset.operation) {
+        chooseOperation(button.dataset.operation);
+      } else if (button.dataset.action === "decimal") {
+        inputDecimal();
+      } else if (button.dataset.action === "equals") {
+        finishCalculation();
+      } else if (button.dataset.action === "clear") {
+        clearAll();
+      } else if (button.dataset.action === "backspace") {
+        backspace();
+      } else if (button.dataset.action === "sqrt") {
+        squareRoot();
+      } else if (button.dataset.action === "percent") {
+        percentage();
+      }
+    });
+
+    document.getElementById("clear-history").addEventListener("click", function () {
+      history = [];
+      renderHistory();
+    });
+
+    window.addEventListener("keydown", function (event) {
+      if (/^[0-9]$/.test(event.key)) inputNumber(event.key);
+      else if (event.key === ".") inputDecimal();
+      else if (["+", "-", "*", "/"].includes(event.key)) chooseOperation(event.key);
+      else if (event.key === "Enter" || event.key === "=") finishCalculation();
+      else if (event.key === "Backspace") backspace();
+      else if (event.key === "Escape") clearAll();
+    });
+  </script>
+</body>
+</html>
+```
