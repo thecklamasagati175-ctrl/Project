@@ -18,7 +18,7 @@ def divide(a, b):
 
 
 while True:
-    print("\nCalculator")
+    print("\nSIMPLE CALCULATOR")
     print("Type 'q' at the first question to quit.")
 
     first_number = input("Enter your first number: ")
